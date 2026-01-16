@@ -25,12 +25,12 @@ function treeToXML(tree) {
     .join(' ');
 
   if (!children.length) {
-    return `${indent}<${tag} ${attrsString}/>\n`;
+    return `${indent}<${tag}${attrsString && ` ${attrsString}`}/>\n`;
   }
 
   const childrenString = children.map(treeToXML).join('');
 
-  return `${indent}<${tag} ${attrsString}>\n${childrenString}${indent}</${tag}>\n`;
+  return `${indent}<${tag}${attrsString && ` ${attrsString}`}>\n${childrenString}${indent}</${tag}>\n`;
 }
 
 module.exports = async function* coberturaReporter(source) {
