@@ -1,43 +1,26 @@
 "use strict";
 const path = require("path");
+const { create } = require("xmlbuilder2");
 
-function escapeAttribute(s = "") {
-	return s
-		.replace(/&/g, "&amp;")
-		.replace(/</g, "&lt;")
-		.replace(/"/g, "&quot;")
-		.replace(/\n/g, "");
-}
-
-function escapeContent(s = "") {
-	return s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
-}
-
-function treeToXML(tree) {
+function treeToElement(parent, tree) {
 	if (typeof tree === "string") {
-		return `${escapeContent(tree)}\n`;
+		parent.txt(tree);
+		return;
 	}
 
-	const { tag, attrs = {}, nesting, children = [] } = tree;
-	const indent = "\t".repeat(nesting + 1);
+	const { tag, attrs = {}, children = [] } = tree;
+	const element = parent.ele(tag);
 
-	const attrsString = Object.entries(attrs)
-		.map(([key, value]) => `${key}="${escapeAttribute(String(value))}"`)
-		.join(" ");
-
-	if (!children.length) {
-		return `${indent}<${tag}${attrsString && ` ${attrsString}`}/>\n`;
+	for (const [key, value] of Object.entries(attrs)) {
+		element.att(key, String(value));
 	}
 
-	const childrenString = children.map(treeToXML).join("");
-
-	return `${indent}<${tag}${attrsString && ` ${attrsString}`}>\n${childrenString}${indent}</${tag}>\n`;
+	for (const child of children) {
+		treeToElement(element, child);
+	}
 }
 
 module.exports = async function* coberturaReporter(source) {
-	yield '<?xml version="1.0" ?>\n';
-	yield '<!DOCTYPE coverage SYSTEM "http://cobertura.sourceforge.net/xml/coverage-04.dtd">\n';
-
 	for await (const event of source) {
 		switch (event.type) {
 			case "test:coverage": {
@@ -235,7 +218,17 @@ module.exports = async function* coberturaReporter(source) {
 					],
 				};
 
-				yield treeToXML(result);
+				const doc = create({ version: "1.0" }).dtd({
+					name: "coverage",
+					sysID: "http://cobertura.sourceforge.net/xml/coverage-04.dtd",
+				});
+				treeToElement(doc, result);
+
+				yield doc.end({
+					prettyPrint: true,
+					indent: "\t",
+					newline: "\n",
+				});
 
 				break;
 			}
